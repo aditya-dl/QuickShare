@@ -3,8 +3,10 @@ package store
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aditya-dl/QuickShare/backend/models"
 	"github.com/google/uuid"
@@ -26,6 +28,33 @@ func NewMemoryStore(uploadDir string) *MemoryStore {
 		items:     make(map[string]models.SharedItem),
 		UploadDir: uploadDir,
 	}
+}
+
+func generateNameFromContent(content string) string {
+	if content == "" {
+		return "Untitled Snippet"
+	}
+	words := strings.Fields(content)
+	numWords := 0
+	name := ""
+
+	for _, word := range words {
+		if utf8.RuneCountInString(name) + utf8.RuneCountInString(word) + 1 > 50 && numWords > 0 {
+			break
+		}
+		if name != "" {
+			name += " "
+		}
+		name += word
+		numWords++
+		if numWords >= 7 {
+			break
+		}
+	}
+	if len(name) > 0 && len(name) < len(content) && len(strings.TrimSpace(content)) > len(name) {
+		return name + "..."
+	}
+	return name
 }
 
 func (s *MemoryStore) AddItem(item models.SharedItem) (models.SharedItem, error) {
