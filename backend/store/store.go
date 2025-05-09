@@ -1,6 +1,8 @@
 package store
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -16,6 +18,10 @@ type MemoryStore struct {
 }
 
 func NewMemoryStore(uploadDir string) *MemoryStore {
+	// Ensure upload directory exists
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		fmt.Printf("Warning: Could not create upload directory %s: %v\n", uploadDir, err)
+	}
 	return &MemoryStore{
 		items:     make(map[string]models.SharedItem),
 		UploadDir: uploadDir,
