@@ -73,6 +73,24 @@ func (s *MemoryStore) AddTextSnippet(item models.SharedItem) (models.SharedItem,
 	return item, nil
 }
 
+func (s *MemoryStore) AddFileItem(item models.SharedItem) (models.SharedItem, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	item.ID = uuid.NewString()
+	item.CreatedAt = time.Now()
+	item.Type = models.ItemTypeFile
+	
+	if item.Name == "" && item.FileName != "" {
+		item.Name = item.FileName
+	} else if item.Name == "" {
+		item.Name = "Untitled File"
+	}
+
+	s.items[item.ID] = item
+	return item, nil
+}
+
 func (s *MemoryStore) GetItem(id string) (models.SharedItem, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
