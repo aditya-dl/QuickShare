@@ -57,15 +57,16 @@ func generateNameFromContent(content string) string {
 	return name
 }
 
-func (s *MemoryStore) AddItem(item models.SharedItem) (models.SharedItem, error) {
+func (s *MemoryStore) AddTextSnippet(item models.SharedItem) (models.SharedItem, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	item.ID = uuid.NewString()
 	item.CreatedAt = time.Now()
-	// Basic expiration logic (e.g., defualt 24 hours if not set)
-	if item.ExpiresAt.IsZero() {
-		item.ExpiresAt = time.Now().Add(24 * time.Hour)
+	item.Type = models.ItemTypeText
+
+	if item.Name == "" {
+		item.Name = generateNameFromContent(item.Content)
 	}
 
 	s.items[item.ID] = item
