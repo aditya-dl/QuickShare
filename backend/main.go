@@ -3,47 +3,61 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/aditya-dl/QuickShare/backend/api"
 	"github.com/aditya-dl/QuickShare/backend/store"
+
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
 func main() {
-	uploadDir := "./uploads" // Make this cnofigurable (later)
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		log.Fatalf("Failed to create upload directory: %v", err)
-	}
-	absUploadDir, err := filepath.Abs(uploadDir)
+	// TODO: add env variables here
+	listenAddr := ":8080"
+	uploadDir := "./uploads" // relative to where the binary runs
+
+	// initialize the store
+	dataStore, err := store.NewMemoryStore(uploadDir)
 	if err != nil {
-		log.Fatalf("Failed to get absolute path of upload directory: %v", err)
+		log.Fatalf("Failed to initialize memory store: %v", err)
 	}
 
-	dataStore := store.NewMemoryStore(absUploadDir)
+	// initialize the api handler with the store
 	apiHandler := &api.API{Store: dataStore}
 
+	// setup router
 	r := mux.NewRouter()
 
-	// API routes
-	apiRoutes := r.PathPrefix("/api").Subrouter()
-	apiRoutes.HandleFunc("/snippets", apiHandler.CreateTextSnippetHandler).Methods("POST")
-	// apiRoutes.HandleFunc("/snippets", apiHandler.ListItemsHandler).Methods("GET") // Adapt to filter by type or have separate endpoints
-    // apiRoutes.HandleFunc("/snippets/{id}", apiHandler.GetItemHandler).Methods("GET")
-    // apiRoutes.HandleFunc("/snippets/{id}", apiHandler.DeleteItemHandler).Methods("DELETE")
+	// API routes under /api prefix
+	apiRouter := r.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/snippets", apiHandler.CreateTextSnippetHandler).Methods("POST")
+	apiRouter.HandleFunc("/files", apiHandler.UploadFileHandler).Methods("POST")
+	apiRouter.HandleFunc("/files/{id}/download", apiHandler.DownloadFileHandler).Methods("GET")
+	apiRouter.HandleFunc("/items", apiHandler.ListItemsHandler).Methods("GET")
+	apiRouter.HandleFunc("/items/{id}", apiHandler.GetItemHandler).Methods("GET")
+	apiRouter.HandleFunc("/items/{id}", apiHandler.DeleteItemHandler).Methods("DELETE")
 
-	// apiRoutes.HandleFunc("/files", apiHandler.UploadFileHandler).Methods("POST")
-	// apiRoutes.HandleFunc("/files", apiHandler.ListItemsHandler).Methods("GET")
-    // apiRoutes.HandleFunc("/files/{id}/download", apiHandler.DownloadFileHandler).Methods("GET") // Specific download route
-    // apiRoutes.HandleFunc("/files/{id}", apiHandler.DeleteItemHandler).Methods("DELETE")
+	// --- CORS handling (essential for frontend dev server) ---
+	// TODO: Adjust origins, methods, headers as needed for production
+	// Allowing requests from default Next.js dev server port 3000
+	corsOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"}) // TODO: add deployed frontend url later
+	corsMethods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "OPTIONS"})
+	corsHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}) // TODO: adjust if using auth
 
-	// apiRoutes.HandleFunc("/items", apiHandler.ListItemsHandler).Methods("GET") // General list for both
-    // apiRoutes.HandleFunc("/items/{id}", apiHandler.GetItemHandler).Methods("GET")
-    // apiRoutes.HandleFunc("/items/{id}", apiHandler.DeleteItemHandler).Methods("DELETE")
+	// Apply CORS middleware to the main router
+	corsRouter := handlers.CORS(corsOrigins, corsMethods, corsHeaders)(r)
 
-	log.Println("Starting server on :8080...")
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Setup server
+	srv := &http.Server{
+		Handler: corsRouter,
+		Addr: listenAddr,
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout: 15 * time.Second,
+	}
+
+	log.Printf("Server starting on %s", listenAddr)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
 	}
 }
