@@ -22,7 +22,7 @@ type Store interface {
 	AddItem(item models.SharedItem, fileData multipart.File) (models.SharedItem, error)
 	GetItem(id string) (models.SharedItem, bool)
 	ListItems() []models.SharedItem
-	DeleteItem(id string) bool
+	DeleteItem(id string) error
 	GetFilePath(id string) (string, string, bool) // Returns file path, original filename, found status
 }
 
@@ -163,7 +163,7 @@ func (s *MemoryStore) DeleteItem(id string) error {
 
 	item, found := s.items[id]
 	if !found {
-		return fmt.Errorf("item with IDD '%s' not found", id)
+		return fmt.Errorf("item with ID '%s' not found", id)
 	}
 
 	// if it's a file, attempt to delete it from disk first
