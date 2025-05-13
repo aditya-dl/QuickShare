@@ -8,5 +8,5 @@ export interface SharedItem {
     content?: string;
     fileName?: string;
     contentType?: string;
-    size?: string;
+    size?: number;
 }
